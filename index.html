@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EVE Null-Sec Compressed Ore Profit Tracker</title>
+    <link rel="icon" type="image/jpeg" href="https://assets.vogue.com/photos/5891db7adec09b18414542b8/master/w_1280,c_limit/01-cleavage-chic.jpg">
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -57,7 +59,7 @@
         tr:nth-child(3) .rank-badge { background-color: #cd7f32; color: #000; } 
         
         .loading {
-            color: #ffb300;
+            color: #00ff00;
             font-weight: bold;
             margin-bottom: 15px;
         }
@@ -73,15 +75,15 @@
 <body>
 
     <h1>Null-Sec Ore Profit Tracker</h1>
-    <p class="subtitle">Displays the Jita Buy price for exactly 1 unit of Compressed Ore, auto-sorted by current profitability.</p>
-    <div id="status" class="loading">Establishing secure connection to EVE Market Aggregators...</div>
+    <p class="subtitle">Displays the official EVE Universe Average price for exactly 1 unit of Compressed Ore, auto-sorted by current profitability.</p>
+    <div id="status" class="loading">Pinging official CCP ESI global database servers...</div>
 
     <table>
         <thead>
             <tr>
                 <th style="width: 60px;">Rank</th>
                 <th>Compressed Ore Name</th>
-                <th class="text-right">Jita Buy Value (ISK / 1 Unit)</th>
+                <th class="text-right">Global Average Value (ISK / 1 Unit)</th>
             </tr>
         </thead>
         <tbody id="ore-table-body">
@@ -158,46 +160,29 @@
             const statusDiv = document.getElementById('status');
             const tbody = document.getElementById('ore-table-body');
             
-            const typeIds = compressedOreList.map(o => o.id);
-            const targetUrl = 'https://fuzzwork.co.uk' + typeIds.join(',');
-            
-            // Dual-Proxy Strategy Array
-            const proxyRoutes = [
-                'https://allorigins.win' + encodeURIComponent(targetUrl),
-                'https://corsproxy.io?' + encodeURIComponent(targetUrl)
-            ];
-
-            let marketData = null;
-
-            // Loop sequentially through proxies to ensure high availability
-            for (let route of proxyRoutes) {
-                try {
-                    statusDiv.innerText = `Connecting via secure data stream...`;
-                    const response = await fetch(route);
-                    if (response.ok) {
-                        marketData = await response.json();
-                        break; // Stop loop once data is acquired
-                    }
-                } catch (e) {
-                    console.warn(`Proxy channel failed: ${route}. Attempting alternate data track...`);
-                }
-            }
-
-            if (!marketData) {
-                statusDiv.style.color = '#ff4444';
-                statusDiv.innerText = 'Network traffic limits reached on all gateways. Please refresh in 10-15 seconds.';
-                return;
-            }
+            // Official public price dump address from CCP (CORS whitelist allowed)
+            const ccpEsiUrl = 'https://evetech.net';
 
             try {
+                const response = await fetch(ccpEsiUrl);
+                if (!response.ok) throw new Error("CCP Server connection drop");
+                
+                const rawMarketData = await response.json();
+                
+                // Index market elements into a quick hash lookup map table
+                const priceMap = {};
+                rawMarketData.forEach(item => {
+                    priceMap[item.type_id] = item.average_price || 0;
+                });
+                
                 let activeData = compressedOreList.map(ore => {
-                    const marketItem = marketData[ore.id];
                     return {
                         name: ore.name,
-                        price: marketItem ? parseFloat(marketItem.buy.max) : 0
+                        price: priceMap[ore.id] || 0
                     };
                 });
 
+                // Auto-sort ranking leaderboard matrix descending
                 activeData.sort((a, b) => b.price - a.price);
 
                 tbody.innerHTML = '';
@@ -215,12 +200,12 @@
                 });
 
                 statusDiv.style.color = '#00ff00';
-                statusDiv.innerText = 'Live Jita 4-4 data sorted and synchronized successfully.';
+                statusDiv.innerText = 'Connected directly to CCP database. Tracking online and verified.';
 
             } catch (error) {
                 console.error(error);
                 statusDiv.style.color = '#ff4444';
-                statusDiv.innerText = 'Data presentation rendering error.';
+                statusDiv.innerText = 'Error communicating with official ESI cluster.';
             }
         }
 
