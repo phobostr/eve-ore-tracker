@@ -74,7 +74,7 @@
 
     <h1>Null-Sec Ore Profit Tracker</h1>
     <p class="subtitle">Displays the Jita Buy price for exactly 1 unit of Compressed Ore, auto-sorted by current profitability.</p>
-    <div id="status" class="loading">Fetching live market data securely via CORS network...</div>
+    <div id="status" class="loading">Establishing secure connection to EVE Market Aggregators...</div>
 
     <table>
         <thead>
@@ -161,15 +161,35 @@
             const typeIds = compressedOreList.map(o => o.id);
             const targetUrl = 'https://fuzzwork.co.uk' + typeIds.join(',');
             
-            // Using a secure production API proxy route to injection header variables safely
-            const proxyUrl = 'https://allorigins.win' + encodeURIComponent(targetUrl);
+            // Dual-Proxy Strategy Array
+            const proxyRoutes = [
+                'https://allorigins.win' + encodeURIComponent(targetUrl),
+                'https://corsproxy.io?' + encodeURIComponent(targetUrl)
+            ];
+
+            let marketData = null;
+
+            // Loop sequentially through proxies to ensure high availability
+            for (let route of proxyRoutes) {
+                try {
+                    statusDiv.innerText = `Connecting via secure data stream...`;
+                    const response = await fetch(route);
+                    if (response.ok) {
+                        marketData = await response.json();
+                        break; // Stop loop once data is acquired
+                    }
+                } catch (e) {
+                    console.warn(`Proxy channel failed: ${route}. Attempting alternate data track...`);
+                }
+            }
+
+            if (!marketData) {
+                statusDiv.style.color = '#ff4444';
+                statusDiv.innerText = 'Network traffic limits reached on all gateways. Please refresh in 10-15 seconds.';
+                return;
+            }
 
             try {
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error("CORS validation failed");
-                
-                const marketData = await response.json();
-                
                 let activeData = compressedOreList.map(ore => {
                     const marketItem = marketData[ore.id];
                     return {
@@ -200,7 +220,7 @@
             } catch (error) {
                 console.error(error);
                 statusDiv.style.color = '#ff4444';
-                statusDiv.innerText = 'Error connecting to data feeds. Try reloading the window.';
+                statusDiv.innerText = 'Data presentation rendering error.';
             }
         }
 
