@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE Null-Sec Compressed Ore Profit Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 5px;
+        }
+        p.subtitle {
+            color: #888;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #1e1e1e;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            background-color: #2d2d2d;
+            color: #fff;
+            cursor: default;
+        }
+        tr:hover {
+            background-color: #252525;
+        }
+        tr:first-child td {
+            background-color: rgba(0, 255, 0, 0.05);
+        }
+        .rank-badge {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            border-radius: 50%;
+            background-color: #444;
+            color: #fff;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        tr:nth-child(1) .rank-badge { background-color: #d4af37; color: #000; } 
+        tr:nth-child(2) .rank-badge { background-color: #c0c0c0; color: #000; } 
+        tr:nth-child(3) .rank-badge { background-color: #cd7f32; color: #000; } 
+        
+        .loading {
+            color: #ffb300;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .profit-high {
+            color: #00ff00;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Null-Sec Ore Profit Tracker</h1>
+    <p class="subtitle">Displays the Jita Buy price for exactly 1 unit of Compressed Ore, auto-sorted by current profitability.</p>
+    <div id="status" class="loading">Fetching live market data directly from Jita...</div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 60px;">Rank</th>
+                <th>Compressed Ore Name</th>
+                <th class="text-right">Jita Buy Value (ISK / 1 Unit)</th>
+            </tr>
+        </thead>
+        <tbody id="ore-table-body">
+            <!-- Data dynamically injected here -->
+        </tbody>
+    </table>
+
+    <script>
+        const compressedOreList = [
+            // Arkonor Family
+            { id: 28367, name: "Compressed Arkonor" },
+            { id: 28385, name: "Compressed Arkonor II-Grade" },
+            { id: 28387, name: "Compressed Arkonor III-Grade" },
+            { id: 46691, name: "Compressed Arkonor IV-Grade" },
+            // Bistot Family
+            { id: 28388, name: "Compressed Bistot" },
+            { id: 28392, name: "Compressed Bistot II-Grade" },
+            { id: 28391, name: "Compressed Bistot III-Grade" },
+            { id: 46692, name: "Compressed Bistot IV-Grade" },
+            // Crokite Family
+            { id: 28393, name: "Compressed Crokite" },
+            { id: 28397, name: "Compressed Crokite II-Grade" },
+            { id: 28396, name: "Compressed Crokite III-Grade" },
+            { id: 46693, name: "Compressed Crokite IV-Grade" },
+            // Dark Ochre Family
+            { id: 28398, name: "Compressed Dark Ochre" },
+            { id: 28402, name: "Compressed Dark Ochre II-Grade" },
+            { id: 28401, name: "Compressed Dark Ochre III-Grade" },
+            { id: 46694, name: "Compressed Dark Ochre IV-Grade" },
+            // Gneiss Family
+            { id: 28403, name: "Compressed Gneiss" },
+            { id: 28406, name: "Compressed Gneiss II-Grade" },
+            { id: 28407, name: "Compressed Gneiss III-Grade" },
+            { id: 46695, name: "Compressed Gneiss IV-Grade" },
+            // Mercoxit Family
+            { id: 28422, name: "Compressed Mercoxit" },
+            { id: 28425, name: "Compressed Mercoxit II-Grade" },
+            { id: 28424, name: "Compressed Mercoxit III-Grade" },
+            // Spodumain Family
+            { id: 28418, name: "Compressed Spodumain" },
+            { id: 28420, name: "Compressed Spodumain II-Grade" },
+            { id: 28421, name: "Compressed Spodumain III-Grade" },
+            { id: 46699, name: "Compressed Spodumain IV-Grade" },
+            
+            // --- A0 Rare Null-Sec Ores ---
+            // Kylixium Tiers
+            { id: 82300, name: "Compressed Kylixium" },
+            { id: 82301, name: "Compressed Kylixium II-Grade" },
+            { id: 82302, name: "Compressed Kylixium III-Grade" },
+            { id: 82303, name: "Compressed Kylixium IV-Grade" },
+            // Nocxite Tiers
+            { id: 82304, name: "Compressed Nocxite" },
+            { id: 82305, name: "Compressed Nocxite II-Grade" },
+            { id: 82306, name: "Compressed Nocxite III-Grade" },
+            { id: 82307, name: "Compressed Nocxite IV-Grade" },
+            // Ueganite Tiers
+            { id: 82308, name: "Compressed Ueganite" },
+            { id: 82309, name: "Compressed Ueganite II-Grade" },
+            { id: 82310, name: "Compressed Ueganite III-Grade" },
+            { id: 82311, name: "Compressed Ueganite IV-Grade" },
+            // Hezorime Tiers
+            { id: 82312, name: "Compressed Hezorime" },
+            { id: 82313, name: "Compressed Hezorime II-Grade" },
+            { id: 82314, name: "Compressed Hezorime III-Grade" },
+            { id: 82315, name: "Compressed Hezorime IV-Grade" },
+            // Griemeer Tiers
+            { id: 82316, name: "Compressed Griemeer" },
+            { id: 82317, name: "Compressed Griemeer II-Grade" },
+            { id: 82318, name: "Compressed Griemeer III-Grade" },
+            { id: 82319, name: "Compressed Griemeer IV-Grade" }
+        ];
+
+        async function fetchPrices() {
+            const statusDiv = document.getElementById('status');
+            const tbody = document.getElementById('ore-table-body');
+            
+            const typeIds = compressedOreList.map(o => o.id);
+            // Notice: No proxy wrapper! Direct request.
+            const directUrl = 'https://fuzzwork.co.uk' + typeIds.join(',');
+
+            try {
+                const response = await fetch(directUrl);
+                if (!response.ok) throw new Error("Market server unreachable");
+                
+                const marketData = await response.json();
+                
+                let activeData = compressedOreList.map(ore => {
+                    const marketItem = marketData[ore.id];
+                    return {
+                        name: ore.name,
+                        price: marketItem ? parseFloat(marketItem.buy.max) : 0
+                    };
+                });
+
+                activeData.sort((a, b) => b.price - a.price);
+
+                tbody.innerHTML = '';
+                activeData.forEach((ore, index) => {
+                    const row = document.createElement('tr');
+                    const rank = index + 1;
+                    const priceClass = index === 0 ? 'class="text-right profit-high"' : 'class="text-right"';
+
+                    row.innerHTML = `
+                        <td><span class="rank-badge">${rank}</span></td>
+                        <td><strong>${ore.name}</strong></td>
+                        <td ${priceClass}>${ore.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ISK</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                statusDiv.style.color = '#00ff00';
+                statusDiv.innerText = 'Live Jita 4-4 data loaded successfully.';
+
+            } catch (error) {
+                console.error(error);
+                statusDiv.style.color = '#ff4444';
+                statusDiv.innerText = 'Error pulling market data directly.';
+            }
+        }
+
+        window.onload = fetchPrices;
+    </script>
+</body>
+</html>
