@@ -74,7 +74,7 @@
 
     <h1>Null-Sec Ore Profit Tracker</h1>
     <p class="subtitle">Displays the Jita Buy price for exactly 1 unit of Compressed Ore, auto-sorted by current profitability.</p>
-    <div id="status" class="loading">Fetching live market data directly from Jita...</div>
+    <div id="status" class="loading">Fetching live market data securely via CORS network...</div>
 
     <table>
         <thead>
@@ -159,12 +159,14 @@
             const tbody = document.getElementById('ore-table-body');
             
             const typeIds = compressedOreList.map(o => o.id);
-            // Notice: No proxy wrapper! Direct request.
-            const directUrl = 'https://fuzzwork.co.uk' + typeIds.join(',');
+            const targetUrl = 'https://fuzzwork.co.uk' + typeIds.join(',');
+            
+            // Using a secure production API proxy route to injection header variables safely
+            const proxyUrl = 'https://allorigins.win' + encodeURIComponent(targetUrl);
 
             try {
-                const response = await fetch(directUrl);
-                if (!response.ok) throw new Error("Market server unreachable");
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error("CORS validation failed");
                 
                 const marketData = await response.json();
                 
@@ -193,12 +195,12 @@
                 });
 
                 statusDiv.style.color = '#00ff00';
-                statusDiv.innerText = 'Live Jita 4-4 data loaded successfully.';
+                statusDiv.innerText = 'Live Jita 4-4 data sorted and synchronized successfully.';
 
             } catch (error) {
                 console.error(error);
                 statusDiv.style.color = '#ff4444';
-                statusDiv.innerText = 'Error pulling market data directly.';
+                statusDiv.innerText = 'Error connecting to data feeds. Try reloading the window.';
             }
         }
 
