@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EVE Null-Sec Compressed Ore Profit Tracker</title>
-    <link rel="icon" type="image/jpeg" href="https://img.kwcdn.com/product/fancy/fd35b7f3-1f56-4c80-b52b-7548825d95ea.jpg?imageView2/2/w/800/q/70/format/avif">
-
+     <link rel="icon" type="image/jpeg" href="https://img.kwcdn.com/product/fancy/fd35b7f3-1f56-4c80-b52b-7548825d95ea.jpg?imageView2/2/w/800/q/70/format/avif">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -59,7 +58,7 @@
         tr:nth-child(3) .rank-badge { background-color: #cd7f32; color: #000; } 
         
         .loading {
-            color: #00ff00;
+            color: #ffb300;
             font-weight: bold;
             margin-bottom: 15px;
         }
@@ -76,7 +75,7 @@
 
     <h1>Null-Sec Ore Profit Tracker</h1>
     <p class="subtitle">Displays the live Jita 4-4 Buy price for exactly 1 unit of Compressed Ore, auto-sorted by current profitability.</p>
-    <div id="status" class="loading">Pinging official CCP ESI regional cluster channels...</div>
+    <div id="status" class="loading">Parsing single-payload Jita data metrics...</div>
 
     <table>
         <thead>
@@ -87,10 +86,9 @@
             </tr>
         </thead>
         <tbody id="ore-table-body">
-            <!-- Dynamic Leaderboard Rows Go Here -->
+            <!-- Data dynamically injected here -->
         </tbody>
     </table>
-
     <script>
         const compressedOreList = [
             // Arkonor Family
@@ -160,34 +158,26 @@
             const statusDiv = document.getElementById('status');
             const tbody = document.getElementById('ore-table-body');
             
-            try {
-                statusDiv.innerText = "Querying Jita market order streams...";
+            const typeIds = compressedOreList.map(o => o.id);
+            // Consolidated array query sent directly to Fuzzwork's Jita hub station (60003760)
+            const targetUrl = 'https://fuzzwork.co.uk' + typeIds.join(',');
+            const proxyUrl = 'https://corsproxy.io?' + encodeURIComponent(targetUrl);
 
-                // Map items into an array of parallel network requests
-                const fetchPromises = compressedOreList.map(async (ore) => {
-                    try {
-                        // Request buy orders specifically for this type ID in The Forge region (10000002)
-                        const res = await fetch(`https://evetech.net{ore.id}`);
-                        if (!res.ok) return { name: ore.name, price: 0 };
-                        
-                        const orders = await res.json();
-                        
-                        // Filter for buy orders situated specifically at Jita 4-4 station (location_id 60003760)
-                        const jitaOrders = orders.filter(o => o.location_id === 60003760);
-                        
-                        // Pick out the highest active buy price
-                        const maxBuy = jitaOrders.length > 0 ? Math.max(...jitaOrders.map(o => o.price)) : 0;
-                        
-                        return { name: ore.name, price: maxBuy };
-                    } catch (e) {
-                        return { name: ore.name, price: 0 };
-                    }
+            try {
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error("Connection dropped");
+                
+                const marketData = await response.json();
+                
+                let activeData = compressedOreList.map(ore => {
+                    const marketItem = marketData[ore.id];
+                    return {
+                        name: ore.name,
+                        price: marketItem ? parseFloat(marketItem.buy.max) : 0
+                    };
                 });
 
-                // Execute all 47 pings asynchronously in parallel
-                const activeData = await Promise.all(fetchPromises);
-
-                // Auto-sort leaderboard descending
+                // Sort everything descending based on highest Jita buy price order
                 activeData.sort((a, b) => b.price - a.price);
 
                 tbody.innerHTML = '';
@@ -205,12 +195,12 @@
                 });
 
                 statusDiv.style.color = '#00ff00';
-                statusDiv.innerText = 'Connected directly to CCP ESI. Live Jita 4-4 Buy prices active.';
+                statusDiv.innerText = 'All market strings resolved and sorted successfully.';
 
             } catch (error) {
                 console.error(error);
                 statusDiv.style.color = '#ff4444';
-                statusDiv.innerText = 'Error processing regional orders from ESI.';
+                statusDiv.innerText = 'Network traffic limits reached on all gateways. Please refresh in 10-15 seconds.';
             }
         }
 
